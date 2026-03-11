@@ -25,7 +25,12 @@ app.post('/api/contact', async (req, res) => {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Set up Nodemailer (Jay will need to provide actual credentials in .env)
+    // Verify credentials exist
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        console.error('Missing EMAIL_USER or EMAIL_PASS environment variables');
+        return res.status(500).json({ error: 'Server configuration error' });
+    }
+
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -35,24 +40,24 @@ app.post('/api/contact', async (req, res) => {
     });
 
     const mailOptions = {
-        from: email,
+        from: process.env.EMAIL_USER, // Gmail requires the 'from' to be the authenticated user
+        replyTo: email, // The actual user's email goes here so you can reply to them
         to: process.env.RECEIVER_EMAIL,
         subject: `Portfolio Contact from ${name}`,
         text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     };
 
     try {
-        // Note: This will fail until valid credentials are provided
-        // For now, we'll log it and return success for demonstration
-        console.log(`Contact Form Submission:`, { name, email, message });
+        console.log(`Attempting to send email for: ${name} (${email})`);
 
-        // In a real scenario, uncomment this:
-        // await transporter.sendMail(mailOptions);
+        // --- THIS IS THE CRITICAL LINE I AM ENABLING ---
+        await transporter.sendMail(mailOptions);
 
+        console.log('Email sent successfully');
         res.status(200).json({ message: 'Success! Your message was received.' });
     } catch (error) {
-        console.error('Error sending email:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Nodemailer Error:', error);
+        res.status(500).json({ error: 'Failed to send email. Check backend logs for details.' });
     }
 });
 
